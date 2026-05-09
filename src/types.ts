@@ -30,6 +30,7 @@ export interface DisbursementOrder {
   date: string;
   attachmentUrl?: string;
   approvedBy: string;
+  custodyId?: string;
 }
 
 export interface Cashier {
@@ -37,6 +38,7 @@ export interface Cashier {
   name: string;
   rank: string;
   phone?: string;
+  avatar?: string;
 }
 
 export interface CashierCustody {

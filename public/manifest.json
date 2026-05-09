@@ -1,0 +1,22 @@
+{
+  "name": "نظام الصندوق المالي - اللواء 43",
+  "short_name": "صندوق اللواء",
+  "description": "نظام إدارة العهد والعمليات المالية للواء 43 عمالقة",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1B3A1A",
+  "theme_color": "#A5C94E",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://api.dicebear.com/7.x/avataaars/svg?seed=Soldier",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "https://api.dicebear.com/7.x/avataaars/svg?seed=Soldier",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}

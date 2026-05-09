@@ -19,6 +19,14 @@ export function useStore() {
   const [cashiers, setCashiers] = useState<Cashier[]>([]);
   const [cashierCustodies, setCashierCustodies] = useState<CashierCustody[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [settings, setSettings] = useState({
+    notifications: true,
+    darkMode: false,
+    autoBackup: true,
+    language: 'العربية',
+    isLockEnabled: false,
+    appPin: '1234'
+  });
   const [isLoaded, setIsLoaded] = useState(false);
 
   // Load from localStorage
@@ -31,6 +39,14 @@ export function useStore() {
       setCashiers(data.cashiers || []);
       setCashierCustodies(data.cashierCustodies || []);
       setTransactions(data.transactions || []);
+      setSettings(data.settings || {
+        notifications: true,
+        darkMode: false,
+        autoBackup: true,
+        language: 'العربية',
+        isLockEnabled: false,
+        appPin: '1234'
+      });
     }
     setIsLoaded(true);
   }, []);
@@ -44,9 +60,10 @@ export function useStore() {
         cashiers,
         cashierCustodies,
         transactions,
+        settings,
       }));
     }
-  }, [custody, orders, cashiers, cashierCustodies, transactions, isLoaded]);
+  }, [custody, orders, cashiers, cashierCustodies, transactions, settings, isLoaded]);
 
   const addCustody = (record: Omit<CustodyRecord, 'id'>) => {
     const id = Math.random().toString(36).substr(2, 9);
@@ -138,16 +155,30 @@ export function useStore() {
 
   const settleWholeCashier = (cashierId: string, totalSpent: number, totalReturned: number) => {
     const pendingCustodies = cashierCustodies.filter(c => c.cashierId === cashierId && c.status === CashierStatus.PENDING);
-    const totalHanded = pendingCustodies.reduce((sum, c) => sum + c.amountHanded, 0);
-    
     if (pendingCustodies.length === 0) return;
 
+    let remainingSpent = totalSpent;
+    
     setCashierCustodies(prev => prev.map(c => {
       if (c.cashierId === cashierId && c.status === CashierStatus.PENDING) {
-        // We mark them all as settled. 
-        // For simplicity, we split the spent/returned proportionally or just mark them.
-        // The user just wants them closed.
-        return { ...c, status: CashierStatus.SETTLED, amountSpent: c.amountHanded, amountReturned: 0 };
+        // Calculate how much of this specific record's amount was spent
+        // We allocate from totalSpent down to 0
+        const recordSpent = Math.min(c.amountHanded, remainingSpent);
+        const recordReturned = c.amountHanded - recordSpent;
+        
+        remainingSpent -= recordSpent;
+        
+        // If it's the last record and we still have remainingSpent (over-spending), add it here
+        const isLastPending = pendingCustodies[pendingCustodies.length - 1].id === c.id;
+        const finalSpent = isLastPending ? recordSpent + remainingSpent : recordSpent;
+        const finalReturned = isLastPending ? c.amountHanded - finalSpent : recordReturned;
+
+        return { 
+          ...c, 
+          status: CashierStatus.SETTLED, 
+          amountSpent: finalSpent, 
+          amountReturned: finalReturned 
+        };
       }
       return c;
     }));
@@ -171,6 +202,37 @@ export function useStore() {
     }
   };
 
+  const deleteCashier = (id: string) => {
+    setCashiers(prev => prev.filter(c => c.id !== id));
+  };
+
+  const transferCashierCustody = (custodyId: string, toCashierId: string) => {
+    const fromCashierCustody = cashierCustodies.find(c => c.id === custodyId);
+    if (!fromCashierCustody) return;
+
+    const fromCashier = cashiers.find(c => c.id === fromCashierCustody.cashierId);
+    const toCashier = cashiers.find(c => c.id === toCashierId);
+
+    setCashierCustodies(prev => prev.map(c => {
+      if (c.id === custodyId) {
+        return { ...c, cashierId: toCashierId };
+      }
+      return c;
+    }));
+
+    // Log the transfer
+    const transaction: Transaction = {
+      id: Math.random().toString(36).substr(2, 9),
+      type: 'OUT',
+      source: 'CASHIER_HANDOVER',
+      amount: 0, // Zero because money stays with cashiers, but we want it in log
+      date: new Date().toISOString().split('T')[0],
+      description: `تحويل عهدة من: ${fromCashier?.name} إلى: ${toCashier?.name}`,
+      referenceId: custodyId,
+    };
+    setTransactions(prev => [...prev, transaction]);
+  };
+
   const currentBalance = transactions.reduce((acc, t) => {
     return t.type === 'IN' ? acc + t.amount : acc - t.amount;
   }, 0);
@@ -188,6 +250,10 @@ export function useStore() {
     distributeToCashier,
     settleCashier,
     settleWholeCashier,
+    deleteCashier,
+    transferCashierCustody,
+    settings,
+    setSettings,
     isLoaded
   };
 }
